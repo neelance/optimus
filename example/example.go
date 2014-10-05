@@ -73,7 +73,7 @@ func main() {
 
 	// create command line interface
 	var rootCmd = &cobra.Command{Use: "example"}
-	rootCmd.AddCommand(optimus.CommandRun(webservers))
-	rootCmd.AddCommand(optimus.CommandUp(webservers, config))
+	rootCmd.AddCommand(optimus.RunCommand(webservers))
+	rootCmd.AddCommand(optimus.UpCommand(webservers, config))
 	rootCmd.Execute()
 }
