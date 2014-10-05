@@ -43,7 +43,7 @@ The `up` command in detail
 --------------------------
 The `up` command consists of two phases, the *analyze* and the *modify* phase.
 
-In the *analyze* phase, the `optimus.Configurator` function gets executed multiple times in parallel for each host. It can fetch information about the current state of the host and apply actions (changes) to the `optimus.HostState`. However, these actions are not yet applied to the actual server, but queued for the *modify* phase. During the *analyze* phase, all communication with the host is required to be **read-only**. This way, any information about the host's state need to be only fetched once per *analyze* phase. The phase ends by listing all queued actions and asking for confirmation to proceed.
+In the *analyze* phase, the `optimus.Configurator` function gets executed multiple times in parallel for each host. It can fetch information about the current state of the host and apply actions (changes) to the `optimus.HostState`. However, these actions are not yet applied to the actual server, but queued for the *modify* phase. During the *analyze* phase, all communication with the host is required to be **read-only**. This way, any information about the host's state need to be fetched only once per *analyze* phase. The phase ends by listing all queued actions and asking for confirmation to proceed.
 
 The *modify* phase runs the queued actions on the actual hosts in parallel. If an error occurs while executing an action, the affected host will be marked as *failed* and it will be ignored for the rest of the `up` command. The *modify* phase continues for the remaining hosts.
 
