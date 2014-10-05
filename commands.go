@@ -10,8 +10,8 @@ import (
 func CommandRun(target HostOrGroup) *cobra.Command {
 	return &cobra.Command{
 		Use:   "run [shell command]",
-		Short: "",
-		Long:  ``,
+		Short: "Run a shell command on hosts",
+		Long:  `Run a shell command on hosts`,
 		Run: func(cmd *cobra.Command, args []string) {
 			EachHostParallel(target, func(h *Host) {
 				err := h.Run(strings.Join(args, " "))
@@ -28,8 +28,8 @@ type Configurator func(state *HostState)
 func CommandUp(target HostOrGroup, config Configurator) *cobra.Command {
 	return &cobra.Command{
 		Use:   "up",
-		Short: "",
-		Long:  ``,
+		Short: "Analyze the hosts and apply configuration",
+		Long:  `Analyze the hosts and apply configuration`,
 		Run: func(cmd *cobra.Command, args []string) {
 			for {
 				fmt.Println(yellow("Analyzing configurations..."))
