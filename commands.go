@@ -30,21 +30,40 @@ func RunCommand(target HostOrGroup) *cobra.Command {
 type Configurator func(state *HostState)
 
 func Up(target HostOrGroup, config Configurator) {
+	failed := make(map[*Host]bool)
 	for {
 		fmt.Println(yellow("Analyzing configurations..."))
 		states := make(map[*Host]*HostState)
 		done := true
 		EachHostParallel(target, func(h *Host) {
+			if failed[h] {
+				return
+			}
+			defer func() {
+				if err := recover(); err != nil {
+					fmt.Printf(red("[%s] Error: %s\n"), h.Name, err)
+					failed[h] = true
+				}
+			}()
+
 			s := &HostState{Host: h, Modules: make(map[Module]HostStateModule)}
 			config(s)
-			states[h] = s
+
+			states[h] = s // add after sucessful config
 			if len(s.actions) != 0 {
 				done = false
 			}
 		})
 
 		if done {
-			fmt.Println(green("No actions required."))
+			switch len(failed) {
+			case 0:
+				fmt.Println(green("No pending actions."))
+			case 1:
+				fmt.Printf(red("No pending actions, but 1 host was ignored because of errors.\n"))
+			default:
+				fmt.Printf(red("No pending actions, but %d hosts were ignored because of errors.\n"), len(failed))
+			}
 			break
 		}
 
@@ -62,11 +81,28 @@ func Up(target HostOrGroup, config Configurator) {
 		}
 
 		EachHostParallel(target, func(h *Host) {
+			if failed[h] {
+				return
+			}
+			defer func() {
+				if err := recover(); err != nil {
+					fmt.Printf(red("[%s] Error: %s\n"), h.Name, err)
+					failed[h] = true
+				}
+			}()
 			for _, a := range states[h].actions {
 				a.Run()
 			}
 		})
-		fmt.Println(green("All changes sucessfully applied."))
+
+		switch len(failed) {
+		case 0:
+			fmt.Println(green("All changes sucessfully applied."))
+		case 1:
+			fmt.Printf(red("Errors occurred for 1 host. Ignoring this host.\n"))
+		default:
+			fmt.Printf(red("Errors occurred for %d hosts. Ignoring these hosts.\n"), len(failed))
+		}
 	}
 }
 
