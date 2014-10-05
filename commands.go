@@ -9,7 +9,7 @@ import (
 
 func CommandRun(target HostOrGroup) *cobra.Command {
 	return &cobra.Command{
-		Use:   "run [command]",
+		Use:   "run [shell command]",
 		Short: "",
 		Long:  ``,
 		Run: func(cmd *cobra.Command, args []string) {
@@ -32,7 +32,7 @@ func CommandUp(target HostOrGroup, config Configurator) *cobra.Command {
 		Long:  ``,
 		Run: func(cmd *cobra.Command, args []string) {
 			for {
-				fmt.Println("Analyzing configurations...")
+				fmt.Println(yellow("Analyzing configurations..."))
 				states := make(map[*Host]*HostState)
 				done := true
 				EachHostParallel(target, func(h *Host) {
@@ -45,7 +45,7 @@ func CommandUp(target HostOrGroup, config Configurator) *cobra.Command {
 				})
 
 				if done {
-					fmt.Println("No actions required.")
+					fmt.Println(green("No actions required."))
 					break
 				}
 
@@ -55,14 +55,19 @@ func CommandUp(target HostOrGroup, config Configurator) *cobra.Command {
 						fmt.Printf("[%s] %s\n", s.Host.Name, a.Description())
 					}
 				}
-				fmt.Println("Proceed?")
+				fmt.Print("Proceed? (Y/n) ")
+				var answer string
+				fmt.Scanln(&answer)
+				if answer != "" && answer != "y" && answer != "Y" {
+					break
+				}
 
-				for _, s := range states {
-					for _, a := range s.actions {
+				EachHostParallel(target, func(h *Host) {
+					for _, a := range states[h].actions {
 						a.Run()
 					}
-				}
-				fmt.Println("All changes sucessfully applied.")
+				})
+				fmt.Println(green("All changes sucessfully applied."))
 			}
 		},
 	}
@@ -80,4 +85,16 @@ func EachHostParallel(target HostOrGroup, f func(h *Host)) {
 	for _ = range hosts {
 		<-wait
 	}
+}
+
+func green(s string) string {
+	return "\x1B[32m" + s + "\x1B[0m"
+}
+
+func yellow(s string) string {
+	return "\x1B[33m" + s + "\x1B[0m"
+}
+
+func red(s string) string {
+	return "\x1B[31m" + s + "\x1B[0m"
 }

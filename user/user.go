@@ -7,19 +7,24 @@ import (
 	"github.com/neelance/optimus"
 )
 
+type User struct {
+	Name     string
+	Password string
+}
+
 var module = &struct{}{}
 
 type stateModule struct {
 	users []string
 }
 
-func (s *stateModule) userExists(name string) bool {
-	for _, u := range s.users {
+func (s *stateModule) userIndex(name string) int {
+	for i, u := range s.users {
 		if u == name {
-			return true
+			return i
 		}
 	}
-	return false
+	return -1
 }
 
 func ownState(state *optimus.HostState) *stateModule {
@@ -44,26 +49,24 @@ func ownState(state *optimus.HostState) *stateModule {
 	return s
 }
 
-func Add(state *optimus.HostState, name string) {
+func Present(state *optimus.HostState, user *User, shouldBePresent bool) {
 	s := ownState(state)
-	if s.userExists(name) {
+	index := s.userIndex(user.Name)
+	if (index != -1) == shouldBePresent {
 		return
 	}
 
-	s.users = append(s.users, name)
-	state.AddAction(optimus.SimpleAction(fmt.Sprintf(`Add user "%s"`, name), func() {
-		state.Host.Run(fmt.Sprintf(`adduser --disabled-password --gecos "" %s`, name))
-	}))
-}
-
-func Remove(state *optimus.HostState, name string) {
-	s := ownState(state)
-	if !s.userExists(name) {
+	if !shouldBePresent {
+		s.users[index] = s.users[len(s.users)-1]
+		s.users = s.users[:len(s.users)-1]
+		state.AddAction(optimus.SimpleAction(fmt.Sprintf(`Remove user "%s"`, user.Name), func() {
+			state.Host.Run(fmt.Sprintf(`userdel "%s"`, user.Name))
+		}))
 		return
 	}
 
-	s.users = append(s.users, name)
-	state.AddAction(optimus.SimpleAction(fmt.Sprintf(`Remove user "%s"`, name), func() {
-		state.Host.Run(fmt.Sprintf(`deluser %s`, name))
+	s.users = append(s.users, user.Name)
+	state.AddAction(optimus.SimpleAction(fmt.Sprintf(`Add user "%s"`, user.Name), func() {
+		state.Host.Run(fmt.Sprintf(`useradd --create-home --password "%s" "%s"`, user.Password, user.Name))
 	}))
 }
