@@ -16,7 +16,7 @@ func CommandRun(target HostOrGroup) *cobra.Command {
 			EachHostParallel(target, func(h *Host) {
 				err := h.Run(strings.Join(args, " "))
 				if err != nil {
-					fmt.Printf("[%s] %s", h.Name, err)
+					fmt.Printf("[%s] %s\n", h.Name, err)
 				}
 			})
 		},
