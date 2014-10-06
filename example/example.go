@@ -23,22 +23,28 @@ func dockerHost() string {
 
 // host inventory
 var webserver1 = &optimus.Host{
-	Name:     "webserver1",
-	Addr:     dockerHost() + ":50001",
-	User:     "root",
-	Password: "root",
+	Name: "webserver1",
+	Connection: &optimus.SSH{
+		Addr:     dockerHost() + ":50001",
+		User:     "root",
+		Password: "root",
+	},
 }
 var webserver2 = &optimus.Host{
-	Name:     "webserver2",
-	Addr:     dockerHost() + ":50002",
-	User:     "root",
-	Password: "root",
+	Name: "webserver2",
+	Connection: &optimus.SSH{
+		Addr:     dockerHost() + ":50002",
+		User:     "root",
+		Password: "root",
+	},
 }
 var webserver3 = &optimus.Host{
-	Name:     "webserver3",
-	Addr:     dockerHost() + ":50003",
-	User:     "root",
-	Password: "root",
+	Name: "webserver3",
+	Connection: &optimus.SSH{
+		Addr:     dockerHost() + ":50003",
+		User:     "root",
+		Password: "root",
+	},
 }
 
 // groups of hosts

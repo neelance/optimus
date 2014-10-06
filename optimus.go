@@ -5,116 +5,30 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
-	"os/user"
-	"path/filepath"
-
-	"code.google.com/p/go.crypto/ssh"
 )
 
 type Host struct {
 	Name       string
-	Addr       string
-	User       string
-	Password   string
+	Connection Connection
 	Properties map[string]interface{}
-	client     *ssh.Client
 }
 
-func (h *Host) connect() error {
-	if h.client != nil {
-		return nil
-	}
-
-	key, err := ioutil.ReadFile(filepath.Join(os.Getenv("HOME"), ".ssh/id_rsa"))
-	if err != nil {
-		return err
-	}
-
-	if h.User == "" {
-		u, err := user.Current()
-		if err != nil {
-			return err
-		}
-		h.User = u.Username
-	}
-
-	signer, err := ssh.ParsePrivateKey(key)
-	if err != nil {
-		return err
-	}
-
-	config := &ssh.ClientConfig{
-		User: h.User,
-		Auth: []ssh.AuthMethod{
-			ssh.PublicKeys(signer),
-			ssh.Password(h.Password),
-		},
-	}
-	h.client, err = ssh.Dial("tcp", h.Addr, config)
-	if err != nil {
-		return err
-	}
-
-	return nil
+type Connection interface {
+	Run(cmd string, out io.Writer) error
 }
 
 func (h *Host) Run(cmd string) error {
-	if err := h.connect(); err != nil {
-		return err
-	}
-
-	session, err := h.client.NewSession()
+	r, w, err := os.Pipe()
 	if err != nil {
 		return err
 	}
-	defer session.Close()
 
-	stdout, err := session.StdoutPipe()
-	if err != nil {
-		return err
-	}
-	h.forwardOutput(stdout, os.Stdout)
-
-	stderr, err := session.StderrPipe()
-	if err != nil {
-		return err
-	}
-	h.forwardOutput(stderr, os.Stderr)
-
-	if err := session.Run(cmd); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (h *Host) DownloadFile(path string) ([]byte, error) {
-	if err := h.connect(); err != nil {
-		return nil, err
-	}
-
-	session, err := h.client.NewSession()
-	if err != nil {
-		return nil, err
-	}
-	defer session.Close()
-
-	buf := bytes.NewBuffer(nil)
-	session.Stdout = buf
-	if err := session.Run(fmt.Sprintf(`cat "%s"`, path)); err != nil {
-		return nil, err
-	}
-
-	return buf.Bytes(), nil
-}
-
-func (h *Host) forwardOutput(r io.Reader, w io.Writer) {
-	out := bufio.NewReader(r)
+	bufR := bufio.NewReader(r)
+	done := make(chan bool)
 	go func() {
 		for {
-			line, err := out.ReadString('\n')
+			line, err := bufR.ReadString('\n')
 			if err != nil {
 				if err == io.EOF {
 					break
@@ -123,7 +37,24 @@ func (h *Host) forwardOutput(r io.Reader, w io.Writer) {
 			}
 			fmt.Printf("[%s] %s", h.Name, line)
 		}
+		done <- true
 	}()
+	if err := h.Connection.Run(cmd, w); err != nil {
+		return err
+	}
+	w.Close()
+
+	<-done
+
+	return nil
+}
+
+func (h *Host) DownloadFile(path string) ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	if err := h.Connection.Run(fmt.Sprintf(`cat "%s"`, path), buf); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
 type Group struct {
