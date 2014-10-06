@@ -3,18 +3,17 @@ package optimus
 import (
 	"io"
 	"io/ioutil"
-	"os"
 	"os/user"
-	"path/filepath"
 
 	"code.google.com/p/go.crypto/ssh"
 )
 
 type SSH struct {
-	Addr     string
-	User     string
-	Password string
-	client   *ssh.Client
+	Addr       string
+	User       string
+	Password   string
+	PrivateKey string
+	client     *ssh.Client
 }
 
 func (c *SSH) connect() error {
@@ -22,32 +21,39 @@ func (c *SSH) connect() error {
 		return nil
 	}
 
-	key, err := ioutil.ReadFile(filepath.Join(os.Getenv("HOME"), ".ssh/id_rsa"))
-	if err != nil {
-		return err
-	}
+	var config ssh.ClientConfig
 
-	if c.User == "" {
+	switch c.User {
+	case "":
 		u, err := user.Current()
 		if err != nil {
 			return err
 		}
-		c.User = u.Username
+		config.User = u.Username
+	default:
+		config.User = c.User
 	}
 
-	signer, err := ssh.ParsePrivateKey(key)
-	if err != nil {
-		return err
+	if c.Password != "" {
+		config.Auth = append(config.Auth, ssh.Password(c.Password))
 	}
 
-	config := &ssh.ClientConfig{
-		User: c.User,
-		Auth: []ssh.AuthMethod{
-			ssh.PublicKeys(signer),
-			ssh.Password(c.Password),
-		},
+	if c.PrivateKey != "" {
+		key, err := ioutil.ReadFile(c.PrivateKey)
+		if err != nil {
+			return err
+		}
+
+		signer, err := ssh.ParsePrivateKey(key)
+		if err != nil {
+			return err
+		}
+
+		config.Auth = append(config.Auth, ssh.PublicKeys(signer))
 	}
-	c.client, err = ssh.Dial("tcp", c.Addr, config)
+
+	var err error
+	c.client, err = ssh.Dial("tcp", c.Addr, &config)
 	if err != nil {
 		return err
 	}
